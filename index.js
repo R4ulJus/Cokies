@@ -1,4 +1,6 @@
 import express from "express";
+import cookieParser from "cookie-parser";
+import session from "express-session";
 
 const host = "0.0.0.0";
 const porta = 3000;
@@ -6,17 +8,32 @@ var listaUsuarios = [];
 const server = express();
 
 server.use(express.urlencoded({extended: true}));
+server.use(cookieParser());
 
+server.use(session({
+  secret:"0000",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 15
+  }
+}))
+ 
+server.get("/",  verUsuario, (req, res) => {
 
+ let acesso = req.cookies?.acesso;
 
-server.get("/", (req, res) => {
-    res.send(`
+    const data = new Date();
+    res.cookie("acesso",data.toLocaleDateString());
+
+    res.setHeader("Content-Type", "text/html");
+    res.write(`
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Menu</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 </head>
 <body>
 
@@ -31,10 +48,19 @@ server.get("/", (req, res) => {
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link active" href="/">Início</a></li>
           <li class="nav-item"><a class="nav-link" href="/cadastro">Entra Em Contato</a></li>
+          <li class="nav-item"><a class="nav-link" href="">Sair</a></li>
         </ul>
       </div>
-    </div>
+      </div>
+      <div class="container-fluid">
+        <div class="d-flex">
+            <div class="p-2">
+              <p>Ultimo acesso: ${acesso || "Primeiro Acesso"}</p>
+            </div>
+        </div>
+      </div>
   </nav>
+  
 
   <!-- Hero Section -->
   <section class="py-5 text-center bg-light">
@@ -92,13 +118,14 @@ server.get("/", (req, res) => {
     </div>
   </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
     `);
+    res.end();
 });
-server.get("/cadastro", (req, res) =>{
+
+server.get("/cadastro",  verUsuario,(req, res) =>{
     let conteudo = `
 <!DOCTYPE html>
 <html>
@@ -192,7 +219,7 @@ server.get("/cadastro", (req, res) =>{
 
 
 
-server.post("/adicionarUsuario", (req, res) => {
+server.post("/adicionarUsuario",  verUsuario, (req, res) => {
     const cnpj = req.body.cnpj;
     const razaos = req.body.razaoSocial;
     const nomef = req.body.nomeFantasia;
@@ -402,7 +429,7 @@ server.post("/adicionarUsuario", (req, res) => {
 
 
 
-server.get("/listarUsuarios", (req, res) =>{
+server.get("/listarUsuarios",  verUsuario, (req, res) =>{
     let conteudo = `
 <!DOCTYPE html>
 <html>
@@ -473,6 +500,85 @@ server.get("/listarUsuarios", (req, res) =>{
 
     res.send(conteudo);
 });
+
+server.get("/Login", (req, res) =>{
+  res.send(`
+        <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Menu</title>
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+</head>
+<body>
+
+        <form action='/' method='POST' class="w-50 mx-auto">
+      <div class="mb-3">
+        <label for="usuario" class="form-label">Usuario</label>
+        <input type="text" class="form-control" id="Usuario">
+        
+      <div class="mb-3">
+        <label for="Senha" class="form-label">Senha</label>
+        <input type="password" class="form-control" id="senha">
+      </div>
+      <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+    `)
+})
+
+function verUsuario(req , res ,proximo)
+{
+  if (req.session?.dadosLogin?.usuarioLogado)
+  {
+    proximo();
+  }else{
+    res.redirect("/Login");
+  }
+}
+
+server.post("/Login", (req,res) => {
+      const {usuario, senha} = req.body;
+
+      if (usuario === "admin" && senha === "admin"){
+        req.session.dadosLogin = {
+          Logado:true,
+          NomeUsuario:"admin"
+        };
+        res.redirect("/");
+      }else{
+        res.write(`
+        <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Menu</title>
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+</head>
+<body>
+
+        <form action='/' method='POST' class="w-50 mx-auto">
+      <div class="mb-3">
+        <label for="usuario" class="form-label">Usuario</label>
+        <input type="text" class="form-control" id="Usuario">
+        
+      <div class="mb-3">
+        <label for="Senha" class="form-label">Senha</label>
+        <input type="password" class="form-control" id="senha">
+      </div>
+      <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+          `);
+      }
+    })
+
 
 server.listen(porta, host, () =>{
     console.log(`Servidor rodando em http://${host}:${porta}`)
